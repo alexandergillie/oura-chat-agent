@@ -10,6 +10,45 @@ import {
 import type { z } from "zod";
 import { APPROVAL } from "./shared";
 
+/**
+ * Utility function to get date range for common queries
+ */
+export function getDateRange(period: string): { start_date: string; end_date: string } {
+  const today = new Date();
+  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+  switch (period.toLowerCase()) {
+    case 'today':
+      return { start_date: formatDate(today), end_date: formatDate(today) };
+    case 'yesterday':
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      return { start_date: formatDate(yesterday), end_date: formatDate(yesterday) };
+    case 'week':
+    case 'last week':
+    case 'this week':
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - 6);
+      return { start_date: formatDate(weekStart), end_date: formatDate(today) };
+    case 'month':
+    case 'this month':
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { start_date: formatDate(monthStart), end_date: formatDate(today) };
+    default:
+      // Default to last 7 days
+      const defaultStart = new Date(today);
+      defaultStart.setDate(today.getDate() - 6);
+      return { start_date: formatDate(defaultStart), end_date: formatDate(today) };
+  }
+}
+
+/**
+ * Utility function to safely get a number value with fallback
+ */
+export function safeNumber(value: number | null | undefined, fallback: number = 0): number {
+  return value ?? fallback;
+}
+
 function isValidToolName<K extends PropertyKey, T extends object>(
   key: K,
   obj: T

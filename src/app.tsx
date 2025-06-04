@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback, use } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "agents/ai-react";
-import type { Message } from "@ai-sdk/react";
+import type { Message } from "ai";
 import type { tools } from "./tools";
 
 // Component imports
@@ -26,7 +26,7 @@ import {
 
 // List of tools that require human confirmation
 const toolsRequiringConfirmation: (keyof typeof tools)[] = [
-  "getWeatherInformation",
+
 ];
 
 export default function Chat() {
@@ -107,7 +107,7 @@ export default function Chat() {
 
   return (
     <div className="h-[100vh] w-full p-4 flex justify-center items-center bg-fixed overflow-hidden">
-      <HasOpenAIKey />
+      <HasOuraSetup />
       <div className="h-[calc(100vh-2rem)] w-full mx-auto max-w-lg flex flex-col shadow-xl rounded-md overflow-hidden relative border border-neutral-300 dark:border-neutral-800">
         <div className="px-4 py-3 border-b border-neutral-300 dark:border-neutral-800 flex items-center gap-3 sticky top-0 z-10">
           <div className="flex items-center justify-center h-8 w-8">
@@ -129,7 +129,7 @@ export default function Chat() {
           </div>
 
           <div className="flex-1">
-            <h2 className="font-semibold text-base">AI Chat Agent</h2>
+            <h2 className="font-semibold text-base">Oura Health Chat • Workers AI</h2>
           </div>
 
           <div className="flex items-center gap-2 mr-2">
@@ -171,19 +171,22 @@ export default function Chat() {
                   <div className="bg-[#F48120]/10 text-[#F48120] rounded-full p-3 inline-flex">
                     <Robot size={24} />
                   </div>
-                  <h3 className="font-semibold text-lg">Welcome to AI Chat</h3>
+                  <h3 className="font-semibold text-lg">Welcome to Oura Health Chat</h3>
                   <p className="text-muted-foreground text-sm">
-                    Start a conversation with your AI assistant. Try asking
-                    about:
+                    Chat about your health data from your Oura Ring. Powered by Cloudflare Workers AI.
                   </p>
                   <ul className="text-sm text-left space-y-2">
                     <li className="flex items-center gap-2">
                       <span className="text-[#F48120]">•</span>
-                      <span>Weather information for any city</span>
+                      <span>"How have I been sleeping this week?"</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-[#F48120]">•</span>
-                      <span>Local time in different locations</span>
+                      <span>"Show me my activity levels"</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-[#F48120]">•</span>
+                      <span>"Check my setup" (verify API configuration)</span>
                     </li>
                   </ul>
                 </div>
@@ -256,7 +259,7 @@ export default function Chat() {
                                   }`}
                                 >
                                   {formatTime(
-                                    new Date(m.createdAt as unknown as string)
+                                  new Date(m.createdAt as unknown as string)
                                   )}
                                 </p>
                               </div>
@@ -326,9 +329,10 @@ export default function Chat() {
                 onChange={(e) => {
                   handleAgentInputChange(e);
                   // Auto-resize the textarea
-                  e.target.style.height = "auto";
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                  setTextareaHeight(`${e.target.scrollHeight}px`);
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = "auto";
+                  target.style.height = `${target.scrollHeight}px`;
+                  setTextareaHeight(`${target.scrollHeight}px`);
                 }}
                 onKeyDown={(e) => {
                   if (
@@ -337,7 +341,7 @@ export default function Chat() {
                     !e.nativeEvent.isComposing
                   ) {
                     e.preventDefault();
-                    handleAgentSubmit(e as unknown as React.FormEvent);
+                    handleAgentSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
                     setTextareaHeight("auto"); // Reset height on Enter submission
                   }
                 }}
@@ -373,14 +377,15 @@ export default function Chat() {
   );
 }
 
-const hasOpenAiKeyPromise = fetch("/check-open-ai-key").then((res) =>
-  res.json<{ success: boolean }>()
-);
+const healthCheckPromise = fetch("/health-check").then(async (res) => {
+  const data = await res.json();
+  return data as { oura: boolean; ready: boolean };
+});
 
-function HasOpenAIKey() {
-  const hasOpenAiKey = use(hasOpenAiKeyPromise);
+function HasOuraSetup() {
+  const healthCheck = use(healthCheckPromise) as { oura: boolean; ready: boolean };
 
-  if (!hasOpenAiKey.success) {
+  if (!healthCheck.ready) {
     return (
       <div className="fixed top-0 left-0 right-0 z-50 bg-red-500/10 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto p-4">
@@ -406,37 +411,27 @@ function HasOpenAIKey() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
-                  OpenAI API Key Not Configured
+                  Oura API Token Not Configured
                 </h3>
-                <p className="text-neutral-600 dark:text-neutral-300 mb-1">
-                  Requests to the API, including from the frontend UI, will not
-                  work until an OpenAI API key is configured.
+                <p className="text-neutral-600 dark:text-neutral-300 mb-2">
+                  The health data features require an Oura API token to access your ring data.
                 </p>
-                <p className="text-neutral-600 dark:text-neutral-300">
-                  Please configure an OpenAI API key by setting a{" "}
+                <div className="text-neutral-600 dark:text-neutral-300">
+                  Please configure an Oura API token by getting your personal access token from{" "}
                   <a
-                    href="https://developers.cloudflare.com/workers/configuration/secrets/"
+                    href="https://cloud.ouraring.com/personal-access-tokens"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-red-600 dark:text-red-400"
+                    className="text-red-600 dark:text-red-400 underline"
                   >
-                    secret
+                    Oura Cloud
                   </a>{" "}
-                  named{" "}
+                  and setting it as{" "}
                   <code className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-mono text-sm">
-                    OPENAI_API_KEY
+                    OURA_API_TOKEN
                   </code>
-                  . <br />
-                  You can also use a different model provider by following these{" "}
-                  <a
-                    href="https://github.com/cloudflare/agents-starter?tab=readme-ov-file#use-a-different-ai-model-provider"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-red-600 dark:text-red-400"
-                  >
-                    instructions.
-                  </a>
-                </p>
+                  .
+                </div>
               </div>
             </div>
           </div>

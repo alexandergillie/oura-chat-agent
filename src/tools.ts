@@ -1,5 +1,5 @@
 /**
- * Tool definitions for the AI chat agent
+ * Tool definitions for the Oura Health Chat Agent
  * Tools can either require human confirmation or execute automatically
  */
 import { tool } from "ai";
@@ -8,37 +8,85 @@ import { z } from "zod";
 import type { Chat } from "./server";
 import { getCurrentAgent } from "agents";
 import { unstable_scheduleSchema } from "agents/schedule";
+import {
+  executeGetOuraSleepData,
+  executeGetOuraActivityData,
+  executeGetOuraStressData,
+  executeGetOuraReadinessData,
+  executeGetOuraHealthSummary,
+  executeCheckOuraSetup,
+} from "./oura";
 
 /**
- * Weather information tool that requires human confirmation
- * When invoked, this will present a confirmation dialog to the user
- * The actual implementation is in the executions object below
+ * Get sleep data from Oura API
  */
-const getWeatherInformation = tool({
-  description: "show the weather in a given city to the user",
-  parameters: z.object({ city: z.string() }),
-  // Omitting execute function makes this tool require human confirmation
+const getOuraSleepData = tool({
+  description: "Get sleep data from your Oura ring for a specified time period",
+  parameters: z.object({
+    period: z.string().describe("Time period: 'today', 'yesterday', 'week', 'month', or custom period"),
+    start_date: z.string().optional().describe("Start date in YYYY-MM-DD format (optional if period is specified)"),
+    end_date: z.string().optional().describe("End date in YYYY-MM-DD format (optional if period is specified)"),
+  }),
+  execute: executeGetOuraSleepData,
 });
 
 /**
- * Local time tool that executes automatically
- * Since it includes an execute function, it will run without user confirmation
- * This is suitable for low-risk operations that don't need oversight
+ * Get activity data from Oura API
  */
-const getLocalTime = tool({
-  description: "get the local time for a specified location",
-  parameters: z.object({ location: z.string() }),
-  execute: async ({ location }) => {
-    console.log(`Getting local time for ${location}`);
-    return "10am";
-  },
+const getOuraActivityData = tool({
+  description: "Get daily activity data from your Oura ring including steps, calories, and activity score",
+  parameters: z.object({
+    period: z.string().describe("Time period: 'today', 'yesterday', 'week', 'month', or custom period"),
+    start_date: z.string().optional().describe("Start date in YYYY-MM-DD format (optional if period is specified)"),
+    end_date: z.string().optional().describe("End date in YYYY-MM-DD format (optional if period is specified)"),
+  }),
+  execute: executeGetOuraActivityData,
 });
 
+/**
+ * Get stress data from Oura API
+ */
+const getOuraStressData = tool({
+  description: "Get daily stress levels from your Oura ring showing stress and recovery periods",
+  parameters: z.object({
+    period: z.string().describe("Time period: 'today', 'yesterday', 'week', 'month', or custom period"),
+    start_date: z.string().optional().describe("Start date in YYYY-MM-DD format (optional if period is specified)"),
+    end_date: z.string().optional().describe("End date in YYYY-MM-DD format (optional if period is specified)"),
+  }),
+  execute: executeGetOuraStressData,
+});
+
+/**
+ * Get readiness data from Oura API
+ */
+const getOuraReadinessData = tool({
+  description: "Get daily readiness scores from your Oura ring showing how ready you are for the day",
+  parameters: z.object({
+    period: z.string().describe("Time period: 'today', 'yesterday', 'week', 'month', or custom period"),
+    start_date: z.string().optional().describe("Start date in YYYY-MM-DD format (optional if period is specified)"),
+    end_date: z.string().optional().describe("End date in YYYY-MM-DD format (optional if period is specified)"),
+  }),
+  execute: executeGetOuraReadinessData,
+});
+
+/**
+ * Get comprehensive health summary from multiple Oura endpoints
+ */
+const getOuraHealthSummary = tool({
+  description: "Get a comprehensive health summary including sleep, activity, stress, and readiness data",
+  parameters: z.object({
+    period: z.string().describe("Time period: 'today', 'yesterday', 'week', 'month', or custom period"),
+    start_date: z.string().optional().describe("Start date in YYYY-MM-DD format (optional if period is specified)"),
+    end_date: z.string().optional().describe("End date in YYYY-MM-DD format (optional if period is specified)"),
+  }),
+  execute: executeGetOuraHealthSummary,
+});
+
+// Keep the existing scheduling tools from the boilerplate
 const scheduleTask = tool({
   description: "A tool to schedule a task to be executed at a later time",
   parameters: unstable_scheduleSchema,
   execute: async ({ when, description }) => {
-    // we can now read the agent context from the ALS store
     const { agent } = getCurrentAgent<Chat>();
 
     function throwError(msg: string): string {
@@ -65,10 +113,6 @@ const scheduleTask = tool({
   },
 });
 
-/**
- * Tool to list all scheduled tasks
- * This executes automatically without requiring human confirmation
- */
 const getScheduledTasks = tool({
   description: "List all tasks that have been scheduled",
   parameters: z.object({}),
@@ -88,10 +132,6 @@ const getScheduledTasks = tool({
   },
 });
 
-/**
- * Tool to cancel a scheduled task by its ID
- * This executes automatically without requiring human confirmation
- */
 const cancelScheduledTask = tool({
   description: "Cancel a scheduled task using its ID",
   parameters: z.object({
@@ -110,12 +150,24 @@ const cancelScheduledTask = tool({
 });
 
 /**
+ * Check Oura API configuration and connectivity
+ */
+const checkOuraSetup = tool({
+  description: "Check if the Oura API is properly configured and can connect to your account",
+  parameters: z.object({}),
+  execute: executeCheckOuraSetup,
+});
+
+/**
  * Export all available tools
- * These will be provided to the AI model to describe available capabilities
  */
 export const tools = {
-  getWeatherInformation,
-  getLocalTime,
+  getOuraSleepData,
+  getOuraActivityData,
+  getOuraStressData,
+  getOuraReadinessData,
+  getOuraHealthSummary,
+  checkOuraSetup,
   scheduleTask,
   getScheduledTasks,
   cancelScheduledTask,
@@ -123,12 +175,9 @@ export const tools = {
 
 /**
  * Implementation of confirmation-required tools
- * This object contains the actual logic for tools that need human approval
- * Each function here corresponds to a tool above that doesn't have an execute function
+ * Currently all Oura tools execute automatically, but this can be modified
+ * if you want to require human confirmation for certain operations
  */
 export const executions = {
-  getWeatherInformation: async ({ city }: { city: string }) => {
-    console.log(`Getting weather information for ${city}`);
-    return `The weather in ${city} is sunny`;
-  },
+  // No confirmation-required tools currently
 };
